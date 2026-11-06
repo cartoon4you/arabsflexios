@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { Search, Film, Tv, Bookmark, Compass, LogIn, LogOut, Download, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -128,7 +129,9 @@ export function Navbar() {
                       onClick={() => setShowSuggestions(false)}
                       className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-white/5 transition-colors text-right"
                     >
-                      <img src={item.poster} alt={item.title} className="w-8 h-10 object-cover rounded" referrerPolicy="no-referrer" />
+                      <div className="relative w-8 h-10 rounded overflow-hidden shrink-0">
+                        <Image src={item.poster} alt={item.title} fill className="object-cover" referrerPolicy="no-referrer" />
+                      </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-xs font-bold text-white truncate">{item.title}</div>
                         <div className="text-[10px] text-zinc-400">{item.year} • {item.categoryLabel}</div>
