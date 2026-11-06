@@ -45,19 +45,39 @@ export function VideoPlayer({ servers, title }: VideoPlayerProps) {
     setIsLoading(true);
     let hls: Hls | null = null;
 
-    if (resolvedUrl.endsWith('.m3u8') && Hls.isSupported()) {
-      hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-      });
-      hls.loadSource(resolvedUrl);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setIsLoading(false);
-      });
-      hls.on(Hls.Events.ERROR, () => {
-        setIsLoading(false);
-      });
+    if (resolvedUrl.includes('.m3u8') || activeServer.type === 'hls') {
+      if (Hls.isSupported()) {
+        hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
+        });
+        hls.loadSource(resolvedUrl);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setIsLoading(false);
+        });
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          setIsLoading(false);
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                hls?.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                hls?.recoverMediaError();
+                break;
+              default:
+                hls?.destroy();
+                break;
+            }
+          }
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = resolvedUrl;
+        video.addEventListener('loadedmetadata', () => setIsLoading(false));
+      }
     } else {
       video.src = resolvedUrl;
       const handleCanPlay = () => setIsLoading(false);
