@@ -100,7 +100,7 @@ export function invalidateStreams(mediaId: string): void {
 
 const pendingRequests = new Map<string, Promise<any>>();
 
-export const STANDARD_TIMEOUT_MS = 6000;
+export const STANDARD_TIMEOUT_MS = 2500;
 
 export async function fetchHTML(
   url: string,
