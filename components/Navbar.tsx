@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Search, Film, Tv, Bookmark, Compass, LogIn, LogOut, Download, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWatchlist } from '@/contexts/WatchlistContext';
+import { MediaItem } from '@/lib/types';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -13,10 +14,39 @@ export function Navbar() {
   const { currentUser, signInWithGoogle, logout } = useAuth();
   const { watchlist } = useWatchlist();
   const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<MediaItem[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearchingSuggestions, setIsSearchingSuggestions] = useState(false);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    const q = val.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    if ((window as any).__searchTimer) clearTimeout((window as any).__searchTimer);
+    (window as any).__searchTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data.results?.slice(0, 5) || []);
+          setShowSuggestions(true);
+        }
+      } catch {
+        setSuggestions([]);
+      }
+    }, 300);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      setShowSuggestions(false);
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
@@ -69,22 +99,46 @@ export function Navbar() {
 
         {/* Search bar & Actions */}
         <div className="flex items-center gap-3">
-          <form onSubmit={handleSearch} className="relative hidden sm:block w-48 lg:w-64">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث عن فيلم أو مسلسل..."
-              className="w-full bg-zinc-900/90 text-sm text-white placeholder-zinc-500 rounded-lg pl-3 pr-9 py-1.5 border border-white/10 focus:outline-none focus:border-amber-500/60 transition-colors"
-            />
-            <button
-              type="submit"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-amber-400"
-              aria-label="بحث"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-          </form>
+          <div className="relative hidden sm:block w-48 lg:w-64">
+            <form onSubmit={handleSearch} className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                placeholder="ابحث عن فيلم أو مسلسل..."
+                className="w-full bg-zinc-900/90 text-sm text-white placeholder-zinc-500 rounded-lg pl-3 pr-9 py-1.5 border border-white/10 focus:outline-none focus:border-amber-500/60 transition-colors"
+              />
+              <button
+                type="submit"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-amber-400"
+                aria-label="بحث"
+              >
+                <Search className="w-4 h-4" />
+              </button>
+            </form>
+
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute top-full mt-2 inset-x-0 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+                <div className="p-2 space-y-1">
+                  {suggestions.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={`/watch?id=${item.id}`}
+                      onClick={() => setShowSuggestions(false)}
+                      className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-white/5 transition-colors text-right"
+                    >
+                      <img src={item.poster} alt={item.title} className="w-8 h-10 object-cover rounded" referrerPolicy="no-referrer" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-white truncate">{item.title}</div>
+                        <div className="text-[10px] text-zinc-400">{item.year} • {item.categoryLabel}</div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Watchlist */}
           <Link
